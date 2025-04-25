@@ -30,6 +30,7 @@
             margin-bottom: 10px;
             padding: 10px;
             border-radius: 5px;
+            word-wrap: break-word;
         }
         .user-message {
             background-color: #e3f2fd;
@@ -38,6 +39,13 @@
         .ai-message {
             background-color: #f5f5f5;
             margin-right: 20%;
+        }
+        .error-message {
+            background-color: #ffebee;
+            color: #c62828;
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 5px;
         }
         .input-container {
             display: flex;
@@ -48,6 +56,7 @@
             padding: 10px;
             border: 1px solid #ddd;
             border-radius: 5px;
+            font-size: 16px;
         }
         button {
             padding: 10px 20px;
@@ -56,9 +65,44 @@
             border: none;
             border-radius: 5px;
             cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
         }
         button:hover {
             background-color: #1976d2;
+        }
+        button:disabled {
+            background-color: #bdbdbd;
+            cursor: not-allowed;
+        }
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 10px 0;
+            color: #666;
+        }
+        .typing-indicator {
+            display: inline-block;
+            margin-left: 5px;
+        }
+        .typing-indicator span {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background-color: #666;
+            border-radius: 50%;
+            margin-right: 3px;
+            animation: typing 1s infinite;
+        }
+        .typing-indicator span:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+        .typing-indicator span:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+        @keyframes typing {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-5px); }
         }
     </style>
 </head>
@@ -66,15 +110,26 @@
     <div class="chat-container">
         <h1>AI Chat Bot</h1>
         <div class="chat-messages" id="chat-messages"></div>
+        <div class="loading" id="loading">
+            <span>AI is typing</span>
+            <div class="typing-indicator">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
         <div class="input-container">
-            <input type="text" id="message-input" placeholder="Type your message here...">
-            <button onclick="sendMessage()">Send</button>
+            <input type="text" id="message-input" placeholder="Type your message here..." autocomplete="off">
+            <button id="send-button" onclick="sendMessage()">Send</button>
         </div>
     </div>
 
     <script>
         const chatMessages = document.getElementById('chat-messages');
         const messageInput = document.getElementById('message-input');
+        const sendButton = document.getElementById('send-button');
+        const loadingIndicator = document.getElementById('loading');
+        let isWaitingForResponse = false;
 
         function addMessage(message, isUser) {
             const messageDiv = document.createElement('div');
@@ -84,9 +139,25 @@
             chatMessages.scrollTop = chatMessages.scrollHeight;
         }
 
+        function showError(message) {
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error-message';
+            errorDiv.textContent = message;
+            chatMessages.appendChild(errorDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
         async function sendMessage() {
+            if (isWaitingForResponse) return;
+            
             const message = messageInput.value.trim();
             if (!message) return;
+
+            // Disable input while waiting for response
+            isWaitingForResponse = true;
+            messageInput.disabled = true;
+            sendButton.disabled = true;
+            loadingIndicator.style.display = 'block';
 
             addMessage(message, true);
             messageInput.value = '';
@@ -101,17 +172,33 @@
                 });
 
                 const data = await response.json();
-                addMessage(data.response, false);
+                
+                if (response.ok) {
+                    addMessage(data.response, false);
+                } else {
+                    showError(data.error || 'An error occurred');
+                }
             } catch (error) {
-                addMessage('Error: Could not get response from AI', false);
+                showError('Error: Could not connect to the server');
+            } finally {
+                // Re-enable input
+                isWaitingForResponse = false;
+                messageInput.disabled = false;
+                sendButton.disabled = false;
+                loadingIndicator.style.display = 'none';
+                messageInput.focus();
             }
         }
 
+        // Handle Enter key
         messageInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
+            if (e.key === 'Enter' && !isWaitingForResponse) {
                 sendMessage();
             }
         });
+
+        // Focus input on page load
+        messageInput.focus();
     </script>
 </body>
 </html> 
