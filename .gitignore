@@ -1,0 +1,9 @@
+prj_task*.txt
+Github*.txt
+__pycache__/
+*.pyc
+.env
+.venv
+venv/
+ENV/
+.specstory/ 
